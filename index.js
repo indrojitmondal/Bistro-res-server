@@ -1,4 +1,5 @@
 const express = require('express');
+ 
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
@@ -35,7 +36,7 @@ async function run() {
     const menuCollection = client.db("bistroDb").collection("menu");
     const reviewsCollection = client.db("bistroDb").collection("reviews");
     const cartCollection = client.db("bistroDb").collection("carts");
-     
+    
      // middleware
      const verifyToken = (req, res, next)=>{
       console.log('inside verify token',req.headers.authorization);
@@ -133,17 +134,63 @@ async function run() {
       res.send(result);
 
     })
+    app.get('/menu/:id', async(req, res)=>{
+       const id = req.params.id;
+       const queryWithObID={ _id: new ObjectId(id) };
+       const queryWithID={ _id: (id) };
+
+       let result = await menuCollection.findOne(queryWithObID);
+       console.log('hi',result);
+       if(!result){
+        console.log('Hello');
+        result = await menuCollection.findOne(queryWithID);
+       }
+      
+       res.send(result);
+      }
+    )
+    
     app.post('/menu', verifyToken, verifyAdmin, async(req, res)=>{
       const menuItem= req.body;
       const result= await menuCollection.insertOne(menuItem);
       res.send(result);
     })
+
+    app.patch('/menu/:id', verifyToken, verifyAdmin,  async(req, res)=>{
+       const item= req.body;
+       const id= req.params.id;
+       let filter= {_id: new ObjectId(id)};
+       const updatedDoc={
+        $set:{
+          name: item.name,
+          category: item.category,
+          price: item.price,
+          recipe: item.recipe,
+          image: item.image
+        }
+       }
+       let result = await menuCollection.updateOne(filter,updatedDoc);
+       if(result.modifiedCount===0) {
+         filter={ _id: (id) }
+        result= await menuCollection.updateOne(filter, updatedDoc);
+       }
+       console.log('patch',result);
+       res.send(result);
+    })
+   
+
+    
     app.delete('/menu/:id', verifyToken, verifyAdmin,  async(req, res)=>{
        const id = req.params.id;
        console.log('Backend received delete for ID:', id);
-       const query={ _id: new ObjectId(id) };
+       const queryWithObID={ _id: new ObjectId(id) };
+       const queryWithID={ _id: (id) };
 
-       const result = await menuCollection.deleteOne(query);
+       let result = await menuCollection.deleteOne(queryWithObID);
+       console.log('hi',result);
+       if(result.deletedCount==0){
+        result = await menuCollection.deleteOne(queryWithID);
+       }
        res.send(result);
     })
     app.get('/reviews', async (req, res) => {
