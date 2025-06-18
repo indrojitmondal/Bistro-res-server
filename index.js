@@ -11,7 +11,7 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kk0ds.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 //${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kk0ds.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -55,6 +55,7 @@ async function run() {
     // use verifyAdmin after verifyToken
     const verifyAdmin= async(req, res, next)=>{
       const email = req.decoded.email;
+      console.log('Decoded email:', req.decoded.email);
       const query={email: email};
       const user= await userCollection.findOne(query);
       const isAdmin = user?.role ==='admin';
@@ -107,12 +108,14 @@ async function run() {
     })
     app.delete('/users/:id', verifyToken, verifyAdmin, async(req, res)=>{
        const id = req.params.id;
+      
        const query ={ 
          _id: new ObjectId(id)
        }
        const result = await userCollection.deleteOne(query);
        res.send(result);
     })
+    
     app.patch('/users/admin/:id', verifyToken, verifyAdmin, async(req, res)=>{
       const id = req.params.id;
       const filter={
@@ -134,6 +137,14 @@ async function run() {
       const menuItem= req.body;
       const result= await menuCollection.insertOne(menuItem);
       res.send(result);
+    })
+    app.delete('/menu/:id', verifyToken, verifyAdmin,  async(req, res)=>{
+       const id = req.params.id;
+       console.log('Backend received delete for ID:', id);
+       const query={ _id: new ObjectId(id) };
+
+       const result = await menuCollection.deleteOne(query);
+       res.send(result);
     })
     app.get('/reviews', async (req, res) => {
 
