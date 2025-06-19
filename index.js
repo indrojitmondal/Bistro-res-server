@@ -3,6 +3,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+const stripe= require('stripe')(process.env.STRIPE_SECRET_KEY);
 const jwt = require('jsonwebtoken');
 
 const port = process.env.PORT || 5000;
@@ -36,6 +37,7 @@ async function run() {
     const menuCollection = client.db("bistroDb").collection("menu");
     const reviewsCollection = client.db("bistroDb").collection("reviews");
     const cartCollection = client.db("bistroDb").collection("carts");
+    const paymentCollection = client.db("bistroDb").collection("payments");
     
      // middleware
      const verifyToken = (req, res, next)=>{
@@ -215,6 +217,44 @@ async function run() {
     app.post('/carts', async (req, res)=>{
       const cartItem = req.body;
       const result = await cartCollection.insertOne(cartItem);
+      res.send(result);
+    })
+    // Payment intent 
+    app.post('/create-payment-intent', async(req,res)=>{
+       const {price}= req.body;
+       const amount= parseInt(price * 100);
+       const paymentIntent= await stripe.paymentIntents.create({
+          amount: amount,
+          currency: 'usd',
+          payment_method_types: ['card']
+       })
+       res.send({
+         clientSecret: paymentIntent.client_secret
+        
+       })
+    })
+    app.post('/payments', async(req, res)=>{
+      const payment= req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+      // carefully delete each item from the card 
+      console.log('payment Info', payment);
+      
+      const query={_id:{
+        $in: payment.cartIds.map(id=> new ObjectId(id))
+      }};
+      const deleteResult= cartCollection.deleteMany(query);
+      res.send({paymentResult, deleteResult});
+
+    })
+    app.get('/payments/:email', verifyToken, async(req, res)=>{
+      const email= req.params.email;
+      const query={email: email};
+
+      if(email != req.decoded.email){
+        return res.status(403).send({message:'forbidden access'});
+      }
+
+      const result = await paymentCollection.find(query).toArray();
       res.send(result);
     })
     await client.db("admin").command({ ping: 1 });
